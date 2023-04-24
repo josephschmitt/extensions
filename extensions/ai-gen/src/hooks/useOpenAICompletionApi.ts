@@ -86,10 +86,16 @@ export default function useOpenAICompletionApi(config: { apiKey: string }) {
 export type PreferredModel = { id: string; description: string; max: number };
 export const PREFERRED_MODELS: PreferredModel[] = [
   {
+    id: "gpt-3.5-turbo",
+    description:
+      "Most capable GPT-3.5 model and optimized for chat at 1/10th the cost of text-davinci-003. Will be updated with our latest model iteration.",
+    max: 4096,
+  },
+  {
     id: "text-davinci-003",
     description:
       "Most capable GPT-3 model. Can do any task the other models can do, often with less context. In addition to responding to prompts, also supports inserting completions within text.",
-    max: 4000,
+    max: 4097,
   },
   {
     id: "text-curie-001",
