@@ -1,6 +1,8 @@
-import { Clipboard, Icon, MenuBarExtra, open, openCommandPreferences } from "@raycast/api";
+import { Clipboard, MenuBarExtra, open, openCommandPreferences } from "@raycast/api";
 import { getCurrentWeather } from "./hooks/hooks";
-import { getDateIcon, getUnits, isoToDateTime, isoToTime, timeHour } from "./utils/common-utils";
+import { OPEN_METEO } from "./utils/axios-utils";
+import { getDateIcon, getMenuItem, getUnits, isoToDateTime, isoToTime, timeHour } from "./utils/common-utils";
+import { getMenuIcon, getWeatherIcon } from "./utils/icon-utils";
 import {
   getWeatherDescription,
   isEmptyLonLat,
@@ -9,31 +11,33 @@ import {
   showForecast,
   showLocation,
   showSun,
+  showUVI,
   windDirection,
   windDirectionSimple,
 } from "./utils/weather-utils";
-import { OPEN_METEO } from "./utils/axios-utils";
 
 export default function MenubarWeather() {
   const { weather, location, loading } = getCurrentWeather();
-  const { tempUnit, windUint } = getUnits();
-  const { description, icon } = getWeatherDescription(weather?.current_weather?.weathercode);
+  const { tempUnit, windUnit } = getUnits();
+  const weatherDescription = getWeatherDescription(weather?.current_weather?.weathercode);
+
+  const menuItems: string[] = getMenuItem(weather);
 
   return (
     <MenuBarExtra
       isLoading={loading}
-      tooltip={`${description}`}
-      title={typeof weather === "undefined" ? "" : ` ${Math.round(weather?.current_weather?.temperature)}${tempUnit}`}
-      icon={icon}
+      tooltip={weatherDescription}
+      title={menuItems.join(" | ")}
+      icon={getWeatherIcon(weather?.current_weather?.weathercode, true)}
     >
       {!loading && (
         <>
           {typeof weather === "undefined" && (
             <MenuBarExtra.Item
-              title={"No weather info, try again later"}
-              icon={icon}
+              title={weatherDescription}
+              icon={getWeatherIcon(undefined)}
               onAction={() => {
-                Clipboard.copy("No weather info, try again later").then(() => null);
+                Clipboard.copy(weatherDescription).then(() => null);
               }}
             />
           )}
@@ -42,10 +46,10 @@ export default function MenubarWeather() {
               {typeof weather?.current_weather !== "undefined" && (
                 <MenuBarExtra.Section title={"Weather"}>
                   <MenuBarExtra.Item
-                    title={description}
-                    icon={icon}
+                    title={weatherDescription}
+                    icon={getWeatherIcon(weather?.current_weather?.weathercode)}
                     onAction={async () => {
-                      await Clipboard.copy(description);
+                      await Clipboard.copy(weatherDescription);
                     }}
                   />
                 </MenuBarExtra.Section>
@@ -57,51 +61,39 @@ export default function MenubarWeather() {
                   <MenuBarExtra.Section title={"Temp"}>
                     <MenuBarExtra.Item
                       title={"Temperature"}
-                      icon={Icon.Temperature}
+                      icon={getMenuIcon("Temperature")}
                       subtitle={` ${Math.round(weather?.current_weather.temperature)}${tempUnit}`}
                       onAction={async () => {
                         await Clipboard.copy(`${Math.round(weather?.current_weather.temperature)}${tempUnit}`);
                       }}
                     />
                     <MenuBarExtra.Item
-                      title={"Feels-like"}
-                      icon={Icon.Temperature}
-                      subtitle={` ${Math.round(weather?.hourly.apparent_temperature[timeHour()])}${tempUnit}`}
-                      onAction={async () => {
-                        await Clipboard.copy(
-                          `${Math.round(weather?.hourly.apparent_temperature[timeHour()])}${tempUnit}`
-                        );
-                      }}
-                    />
-                    <MenuBarExtra.Item
                       title={"Min/Max"}
-                      icon={Icon.Temperature}
-                      subtitle={` ${parseInt(weather?.daily.temperature_2m_min[0] + "")}/${Math.round(
-                        weather?.daily.temperature_2m_max[0]
+                      icon={getMenuIcon("Min/Max")}
+                      subtitle={` ${parseInt(weather?.daily.temperature_2m_min[0] + "")}${tempUnit} / ${Math.round(
+                        weather?.daily.temperature_2m_max[0],
                       )}${tempUnit}`}
                       onAction={async () => {
                         await Clipboard.copy(
-                          `${parseInt(weather?.daily.temperature_2m_min[0] + "")}/${Math.round(
-                            weather?.daily.temperature_2m_max[0]
-                          )}${tempUnit}`
+                          `${parseInt(weather?.daily.temperature_2m_min[0] + "")}${tempUnit} / ${Math.round(
+                            weather?.daily.temperature_2m_max[0],
+                          )}${tempUnit}`,
                         );
                       }}
                     />
                     <MenuBarExtra.Item
-                      title={"Pressure"}
-                      icon={Icon.CricketBall}
-                      subtitle={` ${weather?.hourly.surface_pressure[timeHour()]}${
-                        weather.hourly_units.surface_pressure
-                      }`}
+                      title={"Feels Like"}
+                      icon={getMenuIcon("Feels Like")}
+                      subtitle={` ${Math.round(weather?.hourly.apparent_temperature[timeHour()])}${tempUnit}`}
                       onAction={async () => {
                         await Clipboard.copy(
-                          `${weather?.hourly.surface_pressure[timeHour()]}${weather.hourly_units.surface_pressure}`
+                          `${Math.round(weather?.hourly.apparent_temperature[timeHour()])}${tempUnit}`,
                         );
                       }}
                     />
                     <MenuBarExtra.Item
                       title={"Humidity"}
-                      icon={Icon.Raindrop}
+                      icon={getMenuIcon("Humidity")}
                       subtitle={` ${weather?.hourly.relativehumidity_2m[timeHour()]}${
                         weather.hourly_units.relativehumidity_2m
                       }`}
@@ -109,17 +101,39 @@ export default function MenubarWeather() {
                         await Clipboard.copy(
                           `${weather?.hourly.relativehumidity_2m[timeHour()]}${
                             weather.hourly_units.relativehumidity_2m
-                          }`
+                          }`,
+                        );
+                      }}
+                    />
+                    {showUVI && (
+                      <MenuBarExtra.Item
+                        title={"UVI"}
+                        icon={getMenuIcon("UVI")}
+                        subtitle={` ${Math.round(weather?.daily.uv_index_max[0])}`}
+                        onAction={async () => {
+                          await Clipboard.copy(`${Math.round(weather?.daily.uv_index_max[0])}`);
+                        }}
+                      />
+                    )}
+                    <MenuBarExtra.Item
+                      title={"Pressure"}
+                      icon={getMenuIcon("Pressure")}
+                      subtitle={` ${weather?.hourly.surface_pressure[timeHour()]} ${
+                        weather.hourly_units.surface_pressure
+                      }`}
+                      onAction={async () => {
+                        await Clipboard.copy(
+                          `${weather?.hourly.surface_pressure[timeHour()]} ${weather.hourly_units.surface_pressure}`,
                         );
                       }}
                     />
                     <MenuBarExtra.Item
                       title={"Visibility"}
-                      icon={Icon.Eye}
-                      subtitle={` ${weather?.hourly.visibility[timeHour()]}${weather.hourly_units.visibility}`}
+                      icon={getMenuIcon("Visibility")}
+                      subtitle={` ${weather?.hourly.visibility[timeHour()]} ${weather.hourly_units.visibility}`}
                       onAction={async () => {
                         await Clipboard.copy(
-                          `${weather?.hourly.visibility[timeHour()]}${weather.hourly_units.visibility}`
+                          `${weather?.hourly.visibility[timeHour()]} ${weather.hourly_units.visibility}`,
                         );
                       }}
                     />
@@ -130,15 +144,15 @@ export default function MenubarWeather() {
                 <MenuBarExtra.Section title={"Wind"}>
                   <MenuBarExtra.Item
                     title={"Speed"}
-                    icon={Icon.Gauge}
-                    subtitle={` ${weather?.current_weather.windspeed}${windUint}`}
+                    icon={getMenuIcon("Speed")}
+                    subtitle={` ${weather?.current_weather.windspeed} ${windUnit}`}
                     onAction={async () => {
-                      await Clipboard.copy(`${weather?.current_weather.windspeed}${windUint}`);
+                      await Clipboard.copy(`${weather?.current_weather.windspeed} ${windUnit}`);
                     }}
                   />
                   <MenuBarExtra.Item
                     title={"Direction"}
-                    icon={Icon.Flag}
+                    icon={getMenuIcon("Direction")}
                     subtitle={` ${windDirection(weather?.current_weather.winddirection)}`}
                     onAction={async () => {
                       await Clipboard.copy(`${windDirection(weather?.current_weather.winddirection)}`);
@@ -148,10 +162,10 @@ export default function MenubarWeather() {
               )}
 
               {typeof weather?.hourly !== "undefined" && weather?.hourly.rain[timeHour()] !== 0 && (
-                <MenuBarExtra.Section title={"Rain"}>
+                <MenuBarExtra.Section title={"Precipitation"}>
                   <MenuBarExtra.Item
                     title={"1Hour"}
-                    icon={Icon.Raindrop}
+                    icon={getMenuIcon("1Hour")}
                     subtitle={` ${weather?.hourly.rain[timeHour()]}${weather.hourly_units.rain}`}
                     onAction={async () => {
                       await Clipboard.copy(`${weather?.hourly.rain[timeHour()]}${weather.hourly_units.rain}`);
@@ -166,7 +180,7 @@ export default function MenubarWeather() {
             <MenuBarExtra.Section title={"Sun"}>
               <MenuBarExtra.Item
                 title={"Sunrise"}
-                icon={Icon.Sunrise}
+                icon={getMenuIcon("Sunrise")}
                 subtitle={` ${isoToTime(weather?.daily.sunrise[0])}`}
                 onAction={async () => {
                   await Clipboard.copy(`${isoToTime(weather?.daily.sunrise[0])}`);
@@ -174,7 +188,7 @@ export default function MenubarWeather() {
               />
               <MenuBarExtra.Item
                 title={"Sunset"}
-                icon={Icon.Moon}
+                icon={getMenuIcon("Sunset")}
                 subtitle={` ${isoToTime(weather?.daily.sunset[0])}`}
                 onAction={async () => {
                   await Clipboard.copy(`${isoToTime(weather?.daily.sunset[0])}`);
@@ -187,7 +201,7 @@ export default function MenubarWeather() {
               {typeof location.name !== "undefined" && (
                 <MenuBarExtra.Item
                   title={"City"}
-                  icon={Icon.ChessPiece}
+                  icon={getMenuIcon("City")}
                   subtitle={` ${location?.name}`}
                   onAction={async () => {
                     await Clipboard.copy(`${location?.name}`);
@@ -197,7 +211,7 @@ export default function MenubarWeather() {
               {typeof location.country !== "undefined" && (
                 <MenuBarExtra.Item
                   title={"Country"}
-                  icon={Icon.BankNote}
+                  icon={getMenuIcon("Country")}
                   subtitle={` ${location?.country}`}
                   onAction={async () => {
                     await Clipboard.copy(`${location?.country}`);
@@ -207,7 +221,7 @@ export default function MenubarWeather() {
               {typeof location.timezone !== "undefined" && (
                 <MenuBarExtra.Item
                   title={"Timezone"}
-                  icon={Icon.CircleProgress50}
+                  icon={getMenuIcon("Timezone")}
                   subtitle={` ${location?.timezone}`}
                   onAction={async () => {
                     await Clipboard.copy(`${location?.timezone}`);
@@ -217,7 +231,7 @@ export default function MenubarWeather() {
               {typeof location.longitude !== "undefined" && typeof location.latitude !== "undefined" && (
                 <MenuBarExtra.Item
                   title={"Lon, Lat"}
-                  icon={Icon.EditShape}
+                  icon={getMenuIcon("Lon, Lat")}
                   subtitle={` ${location?.longitude?.toFixed(2)}, ${location?.latitude?.toFixed(2)}`}
                   onAction={async () => {
                     await Clipboard.copy(`${location?.longitude?.toFixed(2)}, ${location?.latitude?.toFixed(2)}`);
@@ -231,7 +245,7 @@ export default function MenubarWeather() {
             <MenuBarExtra.Section title={"Location"}>
               <MenuBarExtra.Item
                 title={"Lon, Lat"}
-                icon={Icon.EditShape}
+                icon={getMenuIcon("Lon, Lat")}
                 subtitle={` ${parseFloat(longitude)?.toFixed(2)}, ${parseFloat(latitude)?.toFixed(2)}`}
                 onAction={async () => {
                   await Clipboard.copy(`${parseFloat(longitude)?.toFixed(2)}, ${parseFloat(latitude)?.toFixed(2)}`);
@@ -242,106 +256,129 @@ export default function MenubarWeather() {
 
           {showForecast && typeof weather !== "undefined" && (
             <MenuBarExtra.Section title={"Forecast"}>
-              <MenuBarExtra.Submenu title={"Weather"} icon={Icon.Cloud}>
-                {weather?.daily?.weathercode?.map((value, index) => {
-                  const { icon, description } = getWeatherDescription(weather?.daily?.weathercode[index]);
+              <MenuBarExtra.Submenu title={"Weather"} icon={getMenuIcon("Weather")}>
+                {weather?.daily?.weathercode?.map((_value, index) => {
+                  const weatherDescription = getWeatherDescription(weather?.daily?.weathercode[index]);
+                  const weatherIcon = getWeatherIcon(weather?.daily?.weathercode[index]);
                   return (
                     <MenuBarExtra.Item
                       key={index + weather?.daily?.time[index] + weather?.daily?.temperature_2m_min[index]}
-                      icon={icon}
-                      title={description}
+                      icon={weatherIcon}
+                      title={weatherDescription}
+                      subtitle={weather?.daily?.time[index].substring(5)}
                       onAction={async () => {
-                        await Clipboard.copy(weather?.daily?.time[index] + " " + description);
+                        await Clipboard.copy(weather?.daily?.time[index] + " " + weatherDescription);
                       }}
                     />
                   );
                 })}
               </MenuBarExtra.Submenu>
-              <MenuBarExtra.Submenu title={"Temperature"} icon={Icon.Temperature}>
+              <MenuBarExtra.Submenu title={"Temperature"} icon={getMenuIcon("Temperature")}>
                 {weather?.daily?.temperature_2m_min?.map((value, index) => {
                   return (
                     <MenuBarExtra.Item
                       key={index + weather?.daily?.time[index] + weather?.daily?.temperature_2m_min[index]}
                       icon={getDateIcon(weather?.daily?.time[index].substring(8))}
                       title={` ${parseInt(value + "")}~${Math.round(
-                        weather?.daily?.temperature_2m_max[index]
+                        weather?.daily?.temperature_2m_max[index],
                       )}${tempUnit}`}
+                      subtitle={weather?.daily?.time[index].substring(5)}
                       onAction={async () => {
                         await Clipboard.copy(
                           weather?.daily?.time[index] +
                             ` ${parseInt(value + "")}~${Math.round(
-                              weather?.daily?.temperature_2m_max[index]
-                            )}${tempUnit}`
+                              weather?.daily?.temperature_2m_max[index],
+                            )}${tempUnit}`,
                         );
                       }}
                     />
                   );
                 })}
               </MenuBarExtra.Submenu>
-              <MenuBarExtra.Submenu title={"Wind"} icon={Icon.Boat}>
+              <MenuBarExtra.Submenu title={"Wind"} icon={getMenuIcon("Wind")}>
                 {weather?.daily?.windspeed_10m_max?.map((value, index) => {
                   return (
                     <MenuBarExtra.Item
                       key={index + weather?.daily?.time[index] + weather?.daily?.windspeed_10m_max[index]}
                       icon={getDateIcon(weather?.daily?.time[index].substring(8))}
-                      title={` ${value}${windUint}${windDirectionSimple(weather?.daily, index)}`}
+                      title={` ${value}${windUnit}${windDirectionSimple(weather?.daily, index)}`}
+                      subtitle={weather?.daily?.time[index].substring(5)}
                       onAction={async () => {
                         await Clipboard.copy(
                           weather?.daily?.time[index] +
-                            ` ${value}${windUint}${windDirectionSimple(weather?.daily, index)}`
+                            ` ${value}${windUnit}${windDirectionSimple(weather?.daily, index)}`,
                         );
                       }}
                     />
                   );
                 })}
               </MenuBarExtra.Submenu>
-              <MenuBarExtra.Submenu title={"Rain"} icon={Icon.Raindrop}>
+              <MenuBarExtra.Submenu title={"Precipitation"} icon={getMenuIcon("Precipitation")}>
                 {weather?.daily?.rain_sum?.map((value, index) => {
                   return (
                     <MenuBarExtra.Item
                       key={index + weather?.daily?.time[index] + weather?.daily?.rain_sum[index]}
                       icon={getDateIcon(weather?.daily?.time[index].substring(8))}
                       title={` ${value}${weather?.daily_units?.rain_sum}`}
+                      subtitle={weather?.daily?.time[index].substring(5)}
                       onAction={async () => {
                         await Clipboard.copy(
-                          weather?.daily?.time[index] + ` ${value}${weather?.daily_units?.rain_sum}`
+                          weather?.daily?.time[index] + ` ${value}${weather?.daily_units?.rain_sum}`,
                         );
                       }}
                     />
                   );
                 })}
               </MenuBarExtra.Submenu>
+              {showUVI && (
+                <MenuBarExtra.Submenu title={"UVI"} icon={getMenuIcon("UVI")}>
+                  {weather?.daily?.uv_index_max?.map((value, index) => {
+                    return (
+                      <MenuBarExtra.Item
+                        key={index + weather?.daily?.time[index] + Math.round(value)}
+                        icon={getDateIcon(weather?.daily?.time[index].substring(8))}
+                        title={` ${Math.round(value)}`}
+                        subtitle={weather?.daily?.time[index].substring(5)}
+                        onAction={async () => {
+                          await Clipboard.copy(weather?.daily?.time[index] + ` ` + Math.round(value));
+                        }}
+                      />
+                    );
+                  })}
+                </MenuBarExtra.Submenu>
+              )}
             </MenuBarExtra.Section>
           )}
-          <MenuBarExtra.Separator />
-
-          <MenuBarExtra.Item
-            title={"Source"}
-            icon={Icon.BarChart}
-            subtitle={` Open-Meteo`}
-            onAction={async () => {
-              await open(OPEN_METEO);
-            }}
-          />
-          {typeof weather?.current_weather !== "undefined" && (
+          <MenuBarExtra.Section>
             <MenuBarExtra.Item
-              title={"Detect Time"}
-              icon={Icon.Download}
-              subtitle={` ${isoToDateTime(weather?.current_weather.time)}`}
+              title={"Source"}
+              icon={getMenuIcon("Source")}
+              subtitle={` Open-Meteo`}
               onAction={async () => {
-                await Clipboard.copy(`${isoToDateTime(weather?.current_weather.time)}`);
+                await open(OPEN_METEO);
               }}
             />
-          )}
-          <MenuBarExtra.Separator />
-          <MenuBarExtra.Item
-            title={"Preferences"}
-            icon={Icon.Gear}
-            shortcut={{ modifiers: ["cmd"], key: "," }}
-            onAction={() => {
-              openCommandPreferences().then(() => null);
-            }}
-          />
+            {typeof weather?.current_weather !== "undefined" && (
+              <MenuBarExtra.Item
+                title={"Last Updated"}
+                icon={getMenuIcon("Last Updated")}
+                subtitle={` ${isoToDateTime(weather?.current_weather.time)}`}
+                onAction={async () => {
+                  await Clipboard.copy(`${isoToDateTime(weather?.current_weather.time)}`);
+                }}
+              />
+            )}
+          </MenuBarExtra.Section>
+          <MenuBarExtra.Section>
+            <MenuBarExtra.Item
+              title={"Settings…"}
+              icon={getMenuIcon("Settings")}
+              shortcut={{ modifiers: ["cmd"], key: "," }}
+              onAction={() => {
+                openCommandPreferences().then(() => null);
+              }}
+            />
+          </MenuBarExtra.Section>
         </>
       )}
     </MenuBarExtra>

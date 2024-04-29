@@ -1,5 +1,13 @@
 # Open Link in Specific Browser Changelog
 
+## [Support More Browsers] - 2024-04-17
+
+- Supports beta, dev, canary browsers
+
+## [Hide All Apps] - 2023-11-03
+
+- Add setting item, you can choose to hide all apps
+
 ## [Fix Bug] - 2023-03-30
 
 - Fix the bug that Safari don't show up

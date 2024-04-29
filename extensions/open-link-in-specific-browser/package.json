@@ -245,20 +245,29 @@
       "default": false,
       "label": "Other Apps",
       "description": "Whether to show other apps in the recommended apps"
+    },
+    {
+      "name": "showAll",
+      "type": "checkbox",
+      "title": "All Apps",
+      "required": false,
+      "default": false,
+      "label": "All Apps",
+      "description": "Whether to show all apps"
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.49.0"
+    "@raycast/api": "^1.71.3"
   },
   "devDependencies": {
-    "@types/node": "~16.10.0",
-    "@types/react": "^17.0.28",
-    "@typescript-eslint/eslint-plugin": "^5.0.0",
-    "@typescript-eslint/parser": "^5.0.0",
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
-    "prettier": "^2.5.1",
-    "typescript": "^4.4.3"
+    "@types/node": "~20.12.7 ",
+    "@types/react": "^18.2.79 ",
+    "@typescript-eslint/eslint-plugin": "^7.7.0",
+    "@typescript-eslint/parser": "^7.7.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5"
   },
   "scripts": {
     "build": "ray build -e dist",

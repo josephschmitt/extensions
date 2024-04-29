@@ -1,18 +1,17 @@
-import { ActionPanel, confirmAlert, Action, Toast, showToast, Color, Icon, Clipboard, Alert } from "@raycast/api";
+import { Action, ActionPanel, Alert, Clipboard, Color, Icon, Toast, confirmAlert, showToast } from "@raycast/api";
 import { MutatePromise, useCachedPromise } from "@raycast/utils";
 import { useState } from "react";
 
+import { getGitHubClient } from "../api/githubClient";
 import {
   IssueClosedStateReason,
   IssueDetailFieldsFragment,
   IssueFieldsFragment,
-  SearchCreatedIssuesQuery,
-  SearchOpenIssuesQuery,
   UserFieldsFragment,
 } from "../generated/graphql";
 import { getErrorMessage } from "../helpers/errors";
 import { getGitHubUser } from "../helpers/users";
-import { getGitHubClient } from "../helpers/withGithubClient";
+import { useMyIssues } from "../hooks/useMyIssues";
 import { useViewer } from "../hooks/useViewer";
 
 type Issue = IssueFieldsFragment | IssueDetailFieldsFragment;
@@ -20,10 +19,7 @@ type Issue = IssueFieldsFragment | IssueDetailFieldsFragment;
 type IssueActionsProps = {
   issue: Issue;
   viewer?: UserFieldsFragment;
-  mutateList?:
-    | MutatePromise<SearchCreatedIssuesQuery | undefined>
-    | MutatePromise<SearchOpenIssuesQuery | undefined>
-    | MutatePromise<IssueFieldsFragment[] | undefined>;
+  mutateList?: MutatePromise<IssueFieldsFragment[] | undefined> | ReturnType<typeof useMyIssues>["mutate"];
   mutateDetail?: MutatePromise<Issue>;
   children?: React.ReactNode;
 };
@@ -224,7 +220,7 @@ export default function IssueActions({ issue, mutateList, mutateDetail, children
 
   const isAssignedToMe = issue.assignees.nodes?.some((assignee) => assignee?.isViewer);
 
-  const linkedBranch: any = issue.linkedBranches?.nodes?.length ? issue.linkedBranches.nodes[0] : null;
+  const linkedBranch = issue.linkedBranches?.nodes?.length ? issue.linkedBranches.nodes[0] : null;
 
   return (
     <ActionPanel title={`#${issue.number} in ${issue.repository.nameWithOwner}`}>
@@ -286,7 +282,7 @@ export default function IssueActions({ issue, mutateList, mutateDetail, children
                 title={"Delete Issue Branch"}
                 style={Action.Style.Destructive}
                 icon={{ source: "branch.svg", tintColor: Color.Red }}
-                onAction={() => deleteLinkedBranch(linkedBranch.id, linkedBranch.ref.name)}
+                onAction={() => deleteLinkedBranch(linkedBranch?.id || "", linkedBranch.ref?.name ?? "")}
               />
             ) : null}
           </>
@@ -312,9 +308,9 @@ export default function IssueActions({ issue, mutateList, mutateDetail, children
           shortcut={{ modifiers: ["ctrl", "shift"], key: "," }}
         />
 
-        {linkedBranch ? (
+        {linkedBranch?.ref?.name ? (
           <Action.CopyToClipboard
-            content={linkedBranch.ref.name}
+            content={linkedBranch.ref?.name}
             title="Copy Branch Name"
             shortcut={{ modifiers: ["ctrl", "shift"], key: "." }}
           />
@@ -344,7 +340,7 @@ function AddAssigneeSubmenu({ issue, mutate }: SubmenuProps) {
   const [load, setLoad] = useState(false);
 
   const { data, isLoading } = useCachedPromise(
-    async (issue) => {
+    async (issue: Issue) => {
       return github.repositoryCollaboratorsForIssues({
         owner: issue.repository.owner.login,
         name: issue.repository.name,
@@ -352,7 +348,7 @@ function AddAssigneeSubmenu({ issue, mutate }: SubmenuProps) {
       });
     },
     [issue],
-    { execute: load }
+    { execute: load },
   );
 
   async function addAssignee({ id, text }: { id: string; text: string }) {
@@ -420,7 +416,7 @@ function AddProjectSubmenu({ issue, mutate }: SubmenuProps) {
   const [load, setLoad] = useState(false);
 
   const { data, isLoading } = useCachedPromise(
-    async (issue) => {
+    async (issue: Issue) => {
       return github.repositoryProjectsForIssues({
         owner: issue.repository.owner.login,
         name: issue.repository.name,
@@ -428,7 +424,7 @@ function AddProjectSubmenu({ issue, mutate }: SubmenuProps) {
       });
     },
     [issue],
-    { execute: load }
+    { execute: load },
   );
 
   async function addProject({ id, text }: { id: string; text: string }) {
@@ -489,14 +485,14 @@ function SetMilestoneSubmenu({ issue, mutate }: SubmenuProps) {
   const [load, setLoad] = useState(false);
 
   const { data, isLoading } = useCachedPromise(
-    async (issue) => {
+    async (issue: Issue) => {
       return github.milestonesForRepository({
         owner: issue.repository.owner.login,
         name: issue.repository.name,
       });
     },
     [issue],
-    { execute: load }
+    { execute: load },
   );
 
   async function unsetMilestone() {

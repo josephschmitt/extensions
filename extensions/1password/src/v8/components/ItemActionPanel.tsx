@@ -4,7 +4,15 @@ import { Item, User } from "../types";
 import { ActionID, hrefToOpenInBrowser } from "../utils";
 import resetCache from "../../reset-cache";
 
-export function ItemActionPanel({ account, item, actions }: { account: User; item: Item; actions: ActionID[] }) {
+export function ItemActionPanel({
+  account,
+  item,
+  actions,
+}: {
+  account: User | undefined;
+  item: Item;
+  actions: ActionID[];
+}) {
   return (
     <ActionPanel>
       {actions.map((actionId) => {
@@ -17,6 +25,8 @@ export function ItemActionPanel({ account, item, actions }: { account: User; ite
             return CopyUsername(item);
           case "copy-password":
             return CopyPassword(item);
+          case "copy-one-time-password":
+            return CopyOneTimePassword(item);
         }
       })}
       <ActionPanel.Section>
@@ -26,16 +36,20 @@ export function ItemActionPanel({ account, item, actions }: { account: User; ite
   );
 }
 
-function OpenIn1Password(account: User, item: Item) {
-  return (
-    <Action.Open
-      key="open-in-1password"
-      title="Open In 1Password"
-      target={`onepassword://view-item/?a=${account.account_uuid}&v=${item.vault.id}&i=${item.id}`}
-      application="com.1password.1password"
-      shortcut={{ modifiers: ["cmd", "shift"], key: "o" }}
-    />
-  );
+function OpenIn1Password(account: User | undefined, item: Item) {
+  if (account) {
+    return (
+      <Action.Open
+        key="open-in-1password"
+        title="Open In 1Password"
+        target={`onepassword://view-item/?a=${account.account_uuid}&v=${item.vault.id}&i=${item.id}`}
+        application="com.1password.1password"
+        shortcut={{ modifiers: ["cmd", "shift"], key: "o" }}
+      />
+    );
+  } else {
+    return null;
+  }
 }
 
 function OpenInBrowser(item: Item) {
@@ -74,6 +88,19 @@ function CopyPassword(item: Item) {
       vault_id={item.vault.id}
       field="password"
       shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
+    />
+  );
+}
+
+function CopyOneTimePassword(item: Item) {
+  return (
+    <CopyToClipboard
+      id={item.id}
+      key="copy-one-time-password"
+      vault_id={item.vault.id}
+      field="one-time password"
+      attribute="otp"
+      shortcut={{ modifiers: ["cmd", "ctrl"], key: "c" }}
     />
   );
 }
